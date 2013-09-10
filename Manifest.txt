@@ -1,0 +1,8 @@
+History.rdoc
+README.rdoc
+Rakefile
+data/strelka/cors/apps/strelka/cors_app
+data/strelka/cors/templates/layout.tmpl
+data/strelka/cors/templates/top.tmpl
+lib/strelka/cors.rb
+spec/strelka/cors_spec.rb
