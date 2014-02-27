@@ -8,6 +8,8 @@ docs :: http://deveiate.org/code/strelka-cors
 
 == Description
 
+This is still an unreleased work in progress.
+
 This is a Strelka application plugin for describing rules for Cross-Origin
 Resource Sharing ({CORS}[http://www.w3.org/TR/cors/]).
 
@@ -35,7 +37,6 @@ from any origin, you can do it like so:
     end
 
 This will add the appropriate header to outgoing responses.
-
 
 
 == Installation
