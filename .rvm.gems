@@ -1,0 +1,6 @@
+# .rvm.gems generated gem export file. Note that any env variable settings will be missing. Append these after using a ';' field separator
+hoe-deveiate -v0.4.0
+hoe-bundler -v1.2.0
+strelka -v0.8.0
+simplecov -v0.8.2
+
