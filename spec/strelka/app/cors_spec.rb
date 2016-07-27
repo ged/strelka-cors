@@ -15,19 +15,27 @@ require 'strelka/app/cors'
 describe Strelka::App::CORS do
 
 	before( :all ) do
-		@request_factory = Mongrel2::RequestFactory.new( route: '/api/v1' )
+		@request_factory = Mongrel2::RequestFactory.new(
+			host: 'acme.com',
+			port: 80,
+			route: '/api/v1',
+			headers: {
+				origin: 'https://acme.com/'
+			}
+		)
 	end
 
 
 	it_should_behave_like( "A Strelka Plugin" )
 
 
-	it "adds a method to applications to declare origins that are allowed to access it" do
+	it "adds a method to applications to declare access control rules" do
 		app = Class.new( Strelka::App ) do
 			plugins :cors
 		end
 
-		expect( app ).to respond_to( :allow_origins )
+		expect( app ).to respond_to( :access_controls )
+		expect( app ).to respond_to( :cors_access_control )
 	end
 
 
@@ -43,7 +51,7 @@ describe Strelka::App::CORS do
 	end
 
 
-	describe "an app that " do
+	describe "in an app" do
 
 		let( :appclass ) do
 			Class.new( Strelka::App ) do
@@ -67,36 +75,22 @@ describe Strelka::App::CORS do
 		end
 
 
-		it "doesn't do anything by default" do
-			request = @request_factory.get( '/api/v1/verify' )
+		context "handling a regular request" do
 
-			res = appclass.new.handle( request )
+			it "sets a default Access-Control-Allow-Origin header on responses" do
+				request = @request_factory.get( '/api/v1/verify' )
 
-			expect( res.headers ).to_not include( :access_control_allow_origin )
+				res = appclass.new.handle( request )
+
+				expect( res.headers ).to include( :access_control_allow_origin )
+				expect( res.headers.access_control_allow_origin ).to eq( request.origin.to_s )
+			end
+
 		end
 
 
-		it "allows declaration of a simple public resource" do
-			request = @request_factory.get( '/api/v1/verify' )
 
-			appclass.allow_origins( '*' )
-			res = appclass.new.handle( request )
-
-			expect( res.headers ).to include( :access_control_allow_origin )
-			expect( res.headers.access_control_allow_origin ).to eq( '*' )
-		end
-
-
-		it "allows declaration of a resource that is only accessable from the same origin" do
-			request = @request_factory.get( '/api/v1/verify' )
-
-			appclass.allow_origins( nil )
-			res = appclass.new.handle( request )
-
-			expect( res.headers ).to include( :access_control_allow_origin )
-			expect( res.headers.access_control_allow_origin ).to eq( 'null' )
-		end
-
+		context "handling a pre-flight request"
 
 	end
 

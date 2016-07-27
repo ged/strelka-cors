@@ -1,7 +1,7 @@
 # -*- ruby -*-
 #encoding: utf-8
 
-require 'strelka/httprequest' unless defined?( Strelka::HTTPRequest )
+require 'strelka/httprequest'
 
 
 # The mixin that adds methods to Strelka::HTTPRequest for
@@ -38,6 +38,17 @@ module Strelka::HTTPRequest::CORS
 	def cross_origin?
 		return self.origin && self.headers.host != self.origin.host
 	end
+	alias_method :is_cross_origin?, :cross_origin?
+
+
+	### Returns +true+ if the receiver is a CORS preflight request.
+	def preflight?
+		return self.origin &&
+			self.verb == :OPTIONS &&
+			self.header.access_control_request_method
+	end
+	alias_method :is_preflight?, :preflight?
+
 
 end # module Strelka::HTTPRequest::CORS
 

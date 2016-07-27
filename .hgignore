@@ -1,0 +1,13 @@
+ChangeLog
+examples/var/
+examples/\.env$
+\.DS_Store
+\.lock$
+\.log$
+\.pid$
+\.sqlite$
+\.sublime-.*$
+^coverage/
+^doc/
+^pkg/
+^static/
