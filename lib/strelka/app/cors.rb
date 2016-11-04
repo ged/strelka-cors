@@ -25,7 +25,7 @@ require 'strelka/httpresponse/cors'
 module Strelka::App::CORS
 	extend Strelka::Plugin
 
-	run_outside :routing, :restresources
+	run_outside :routing, :restresources, :negotiation
 	run_inside  :errors, :sessions, :auth
 
 
@@ -44,7 +44,8 @@ module Strelka::App::CORS
 		attr_reader :access_controls
 
 
-		### Get/declare the origins which are allowed to fetch resources
+		### Get/declare access control rules for requests whose app_path matches the specified
+		### +uri_pattern+, and whose other attributes match the given +options+.
 		def access_control( uri_pattern=nil, **options, &block )
 			options[ :block ] = block if block
 			self.access_controls << [ uri_pattern, options ]
@@ -72,7 +73,7 @@ module Strelka::App::CORS
 					self.log.debug "Preflight request for %s" % [ request.uri ]
 					self.handle_preflight_request( request )
 				else
-					self.add_response_headers( request )
+					request.response.add_cors_headers
 					super
 				end
 
@@ -83,10 +84,25 @@ module Strelka::App::CORS
 	end
 
 
-	### Add CORS headers to the +response+.
-	def add_response_headers( request )
+	### Handle a CORS preflight +request+.
+	def handle_preflight_request( request )
+		path = request.app_path
 		response = request.response
+
+		self.class.access_controls.each do |pattern, options|
+			self.log.debug "Applying access controls: %p (%p)" % [ pattern, options ]
+
+			# TODO: Skip requests that don't match options? E.g.,
+			#   next unless options[:allowed_methods].include?( request.verb )
+
+			options[:block].call( request, response ) if
+				options[:block] && ( !pattern || path.match(pattern) )
+		end
+
 		response.add_cors_headers
+		response.status = 204
+
+		return response
 	end
 
 

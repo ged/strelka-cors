@@ -59,6 +59,44 @@ describe Strelka::HTTPResponse::CORS do
 		end
 
 
+		it "adds a convenience method for allowing any origin" do
+			regular_response.allow_any_origin
+
+			expect {
+				regular_response.add_cors_headers
+			}.to change { regular_response.header.access_control_allow_origin }.to( '*' )
+		end
+
+
+		it "sets the `Vary` response header to `Origin` if it specifies an explicit Origin" do
+			regular_response.allow_origin( 'http://acme.com' )
+
+			expect {
+				regular_response.add_cors_headers
+			}.to change { regular_response.header.vary }.to( match(/\borigin\b/i) )
+		end
+
+
+		it "doesn't set the `Vary` response header to `Origin` if it allows any origin" do
+			regular_response.allow_any_origin
+
+			expect {
+				regular_response.add_cors_headers
+			}.to_not change { regular_response.header.vary }
+		end
+
+
+		it "adds `Origin` to an existing Vary header if it specifies an explicit Origin" do
+			regular_response.allow_origin( 'http://acme.com' )
+			regular_response.header.vary = 'content-encoding, content-type'
+
+			regular_response.add_cors_headers
+
+			expect( regular_response.header.vary.downcase.split(/\s*,\s*/) ).
+				to include( 'origin', 'content-encoding', 'content-type' )
+		end
+
+
 		it "adds a convenience method for allowing a single header" do
 			preflight_response.allow_header :content_type
 			preflight_response.allow_header :x_thingfish_owner
@@ -178,6 +216,15 @@ describe Strelka::HTTPResponse::CORS do
 			preflight_response.add_cors_headers
 
 			expect( preflight_response.header.access_control_allow_credentials ).to eq( 'true' )
+		end
+
+
+		it "adds a convenience method for setting the maximum number of seconds a preflight " \
+		   "request can be cached" do
+			preflight_response.access_control_max_age = 300
+			preflight_response.add_cors_headers
+
+			expect( preflight_response.header.access_control_max_age ).to eq( '300' )
 		end
 
 	end

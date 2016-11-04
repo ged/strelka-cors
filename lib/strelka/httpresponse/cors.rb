@@ -16,6 +16,7 @@ module Strelka::HTTPResponse::CORS
 		@allowed_methods = []
 		@allowed_origin = nil
 		@credentials_allowed = false
+		@access_control_max_age = nil
 		super
 	end
 
@@ -41,6 +42,11 @@ module Strelka::HTTPResponse::CORS
 	attr_reader :allowed_origin
 
 	##
+	# The number of seconds a preflight request can be cached
+	attr_accessor :access_control_max_age
+
+
+	##
 	# Whether or not credentials are allowed in the preflighted request
 	attr_predicate_accessor :credentials_allowed
 
@@ -48,6 +54,12 @@ module Strelka::HTTPResponse::CORS
 	### Set the allowed origin for the response.
 	def allow_origin( new_origin )
 		@allowed_origin = new_origin
+	end
+
+
+	### Set the headers of the response to indicate that any Origin is allowed.
+	def allow_any_origin
+		self.allow_origin( '*' )
 	end
 
 
@@ -87,13 +99,22 @@ module Strelka::HTTPResponse::CORS
 
 	### Add any CORS headers which have been set up to the receiving response.
 	def add_cors_headers
-		self.header.access_control_allow_origin = self.allowed_origin || self.request.origin.to_s
-		self.header.access_control_allow_credentials = 'true' if self.credentials_allowed?
+		origin = self.allowed_origin || self.request.origin.to_s
+		if self.set_header_if_present( :allow_origin, origin ) && origin != '*'
+			if (( current_vary = self.header.vary ))
+				self.header.vary = [current_vary, 'origin'].join( ', ' )
+			else
+				self.header.vary = 'origin'
+			end
+		end
+
+		self.set_header_if_present( :allow_credentials, self.credentials_allowed? )
 
 		if self.request.is_preflight?
-			self.log.debug "Preflight response; adding -Allowed- headers"
-			self.header.access_control_allow_headers = self.allow_headers_header
-			self.header.access_control_allow_methods = self.allow_methods_header
+			self.log.debug "Preflight response; adding -Allow- headers"
+			self.set_header_if_present( :allow_headers, self.allow_headers_header )
+			self.set_header_if_present( :allow_methods, self.allow_methods_header )
+			self.set_header_if_present( :max_age, self.access_control_max_age_header )
 		else
 			self.log.debug "Regular response; adding -Expose- headers"
 			self.header.access_control_expose_headers = self.expose_headers_header
@@ -104,6 +125,17 @@ module Strelka::HTTPResponse::CORS
 	#########
 	protected
 	#########
+
+	### If +value+ is not nil or empty, set the access control header with the
+	### specified +name+ to it.
+	def set_header_if_present( name, value )
+		return unless value && !value.to_s.empty?
+		header_name = "access_control_%s" % [ name ]
+		self.header[ header_name ] = value.to_s
+
+		return value
+	end
+
 
 	### Return the value that should be set on the Access-Control-Expose-Headers
 	### header according to the response's #exposed_headers.
@@ -130,6 +162,14 @@ module Strelka::HTTPResponse::CORS
 	def allow_methods_header
 		return nil unless self.allowed_methods && !self.allowed_methods.empty?
 		return self.allowed_methods.map( &:to_s ).sort.uniq.join( ' ' )
+	end
+
+
+	### Return the value that should be set on the Access-Control-Max-Age header
+	### according to the responses #access_control_max_age
+	def access_control_max_age_header
+		max_age = self.access_control_max_age or return nil
+		return max_age.to_i.to_s
 	end
 
 end # module Strelka::HTTPResponse::CORS

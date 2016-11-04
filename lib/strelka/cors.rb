@@ -17,6 +17,7 @@ module Strelka::CORS
 
 	require 'strelka/app/cors'
 	require 'strelka/httprequest/cors'
+	require 'strelka/httpresponse/cors'
 
 end # module Strelka::CORS
 

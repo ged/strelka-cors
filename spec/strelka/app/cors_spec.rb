@@ -51,6 +51,18 @@ describe Strelka::App::CORS do
 	end
 
 
+	it "adds the CORS mixin to the response class" do
+		app = Class.new( Strelka::App ) do
+			plugins :cors
+		end
+		app.install_plugins
+
+		response = @request_factory.get( '/api/v1/verify' ).response
+
+		expect( response ).to respond_to( :credentials_allowed? )
+	end
+
+
 	describe "in an app" do
 
 		let( :appclass ) do
@@ -80,17 +92,100 @@ describe Strelka::App::CORS do
 			it "sets a default Access-Control-Allow-Origin header on responses" do
 				request = @request_factory.get( '/api/v1/verify' )
 
-				res = appclass.new.handle( request )
+				response = appclass.new.handle( request )
 
-				expect( res.headers ).to include( :access_control_allow_origin )
-				expect( res.headers.access_control_allow_origin ).to eq( request.origin.to_s )
+				expect( response.headers ).to include( :access_control_allow_origin )
+				expect( response.headers.access_control_allow_origin ).to eq( request.origin.to_s )
 			end
 
 		end
 
 
 
-		context "handling a pre-flight request"
+		context "handles a pre-flight request" do
+
+			it "runs access controls blocks that match the request's path" do
+				request = @request_factory.options( '/api/v1/verify',
+					 access_control_request_method: 'POST'
+				)
+
+				appclass.access_control( '/verify' ) do |req, res|
+					res.allow_origin( '*' )
+					res.allow_headers( 'Content-Type', 'X-Object-Owner' )
+				end
+				response = appclass.new.handle( request )
+
+				expect( response.headers ).to include(
+					:access_control_allow_origin,
+					:access_control_allow_headers
+				)
+				expect( response.headers.access_control_allow_origin ).to eq( '*' )
+				expect( response.headers.access_control_allow_headers ).
+					to eq( 'Content-Type X-Object-Owner' )
+			end
+
+
+			it "runs access controls blocks that match the request's path as a Regexp" do
+				request = @request_factory.options( '/api/v1/verify',
+					 access_control_request_method: 'POST'
+				)
+
+				appclass.access_control( %r{\A/(verify|concede|command)} ) do |req, res|
+					res.allow_origin( '*' )
+					res.allow_headers( 'Content-Type', 'X-Object-Owner' )
+				end
+				response = appclass.new.handle( request )
+
+				expect( response.headers ).to include(
+					:access_control_allow_origin,
+					:access_control_allow_headers
+				)
+				expect( response.headers.access_control_allow_origin ).to eq( '*' )
+				expect( response.headers.access_control_allow_headers ).
+					to eq( 'Content-Type X-Object-Owner' )
+			end
+
+
+			it "runs access controls blocks that don't specify a path" do
+				request = @request_factory.options( '/api/v1/verify',
+					 access_control_request_method: 'POST'
+				)
+
+				appclass.access_control do |req, res|
+					res.allow_origin( 'https://acme.com/' )
+					res.allow_methods( :GET, :HEAD, :POST )
+				end
+				response = appclass.new.handle( request )
+
+				expect( response.headers ).to include(
+					:access_control_allow_origin,
+					:access_control_allow_methods,
+					:vary
+				)
+				expect( response.headers.access_control_allow_origin ).
+					to eq( 'https://acme.com/' )
+				expect( response.headers.vary.downcase.split(/\s*,\s*/) ).to include( 'origin' )
+				expect( response.headers.access_control_allow_methods ).
+					to eq( 'GET HEAD POST' )
+			end
+
+
+			it "doesn't run access controls blocks that don't match the request's path" do
+				request = @request_factory.options( '/api/v1/verify',
+					 access_control_request_method: 'POST'
+				)
+
+				appclass.access_control( 'optimise' ) do |req, res|
+					res.allow_origin( '*' )
+					res.allow_headers( 'Content-Type', 'X-Object-Owner' )
+				end
+				response = appclass.new.handle( request )
+
+				expect( response.headers ).to_not include( :access_control_allow_headers )
+				expect( response.headers.access_control_allow_origin ).to eq( request.origin.to_s )
+			end
+
+		end
 
 	end
 
